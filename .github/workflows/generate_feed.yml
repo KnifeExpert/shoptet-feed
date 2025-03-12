@@ -2,8 +2,8 @@ name: Generate Shoptet feed
 
 on:
   schedule:
-    - cron: "0 3 * * *"  # Spustí sa každý deň o 03:00 UTC
-  workflow_dispatch:     # Umožní spustiť manuálne z Actions
+    - cron: "0 3 * * *"   # Spustí sa každý deň o 03:00 (UTC)
+  workflow_dispatch:       # Umožní spustiť workflow aj ručne z GitHub Actions
 
 jobs:
   build:
@@ -16,11 +16,14 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.x'
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: |
+          pip install requests
 
       - name: Run feed script
-        run: |
-          python victorinox_test.py
+        run: python victorinox_test.py
 
       - name: Commit updated feed
         run: |
