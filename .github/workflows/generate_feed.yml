@@ -2,8 +2,11 @@ name: Generate Shoptet feed
 
 on:
   schedule:
-    - cron: "0 3 * * *"   # Spustí sa každý deň o 03:00 (UTC)
-  workflow_dispatch:       # Umožní spustiť workflow aj ručne z GitHub Actions
+    - cron: "0 3 * * *"   # raz denne o 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
