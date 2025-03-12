@@ -1,0 +1,31 @@
+name: Generate Shoptet feed
+
+on:
+  schedule:
+    - cron: "0 3 * * *"  # Spustí sa každý deň o 03:00 UTC
+  workflow_dispatch:     # Umožní spustiť manuálne z Actions
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Run feed script
+        run: |
+          python victorinox_test.py
+
+      - name: Commit updated feed
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add valid_shoptet_feed.xml
+          git commit -m "Update feed"
+          git push
