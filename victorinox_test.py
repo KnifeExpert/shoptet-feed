@@ -150,10 +150,3 @@ if __name__ == "__main__":
     else:
         os.remove(temp_file)
         print("Feed sa nezmenil, nič sa neuložilo.")
-"""
-
-# Uložíme ako súbor pre Michala
-with open("/mnt/data/victorinox_test.py", "w", encoding="utf-8") as f:
-    f.write(upraveny_kod)
-
-"/mnt/data/victorinox_test.py"
