@@ -1,68 +1,43 @@
 import xml.etree.ElementTree as ET
 import requests
+import filecmp
+import os
 
 def format_decimal(value):
-    """Nahradí čiarku bodkou, aby bolo číslo vo formáte desatinného čísla."""
     return value.replace(',', '.').strip()
 
 def transform_product(supplier_item):
-    """
-    Transformuje jeden produkt zo supplier feedu do validnej Shoptet štruktúry.
-    Ak produkt nemá neprázdny <EAN>, vráti None (t.j. produkt sa preskočí).
-    Mapovanie:
-      - CODE: z <item_id>
-      - NAME: z <productname> (pripojené s ID)
-      - DESCRIPTION: z <description>
-      - ORIG_URL: z <url>
-      - ITEM_CONDITION: predvolené ("used", "No description provided.")
-      - PRICE_VAT: z <price_vat> (s úpravou formátu)
-      - AVAILABILITY a NEGATIVE_AMOUNT: ak <delivery_date> = "0", potom "3-7 dní" a "1", inak "7-11 dní" a "0"
-      - CATEGORIES: z <categorytext>
-      - IMAGES: z <imgurl>
-      - MANUFACTURER: z <manufacturer>
-      - EAN: z <ean> (ak je prázdny, produkt sa preskočí)
-    Ostatné povolené elementy sú pridané s predvolenými hodnotami.
-    """
-    # Získame EAN a ak je prázdny, produkt preskočíme
     ean = supplier_item.findtext("ean", default="").strip()
     if not ean:
         return None
 
     shopitem = ET.Element("SHOPITEM")
-    
-    # CODE – použijeme <item_id>
     item_id = supplier_item.findtext("item_id", default="N/A").strip()
     code_elem = ET.SubElement(shopitem, "CODE")
     code_elem.text = item_id
 
-    # NAME – použijeme <productname> a pripojíme aj item_id
     productname = supplier_item.findtext("productname", default="N/A").strip()
     name_elem = ET.SubElement(shopitem, "NAME")
     name_elem.text = f"{productname}, {item_id}" if productname != "N/A" else item_id
 
-    # DESCRIPTION – z <description>
     description = supplier_item.findtext("description", default="").strip()
     desc_elem = ET.SubElement(shopitem, "DESCRIPTION")
     desc_elem.text = description
 
-    # ORIG_URL – z <url>
     orig_url = supplier_item.findtext("url", default="N/A").strip()
     orig_url_elem = ET.SubElement(shopitem, "ORIG_URL")
     orig_url_elem.text = orig_url
 
-    # ITEM_CONDITION – predvolené hodnoty
     item_condition_elem = ET.SubElement(shopitem, "ITEM_CONDITION")
     grade_elem = ET.SubElement(item_condition_elem, "GRADE")
     grade_elem.text = "used"
     ic_desc_elem = ET.SubElement(item_condition_elem, "DESCRIPTION")
     ic_desc_elem.text = "No description provided."
 
-    # PRICE_VAT – z <price_vat>
     price_vat = supplier_item.findtext("price_vat", default="0").strip()
     price_vat_elem = ET.SubElement(shopitem, "PRICE_VAT")
     price_vat_elem.text = format_decimal(price_vat)
 
-    # AVAILABILITY a NEGATIVE_AMOUNT – podľa <delivery_date>
     delivery_date = supplier_item.findtext("delivery_date", default="").strip()
     availability_elem = ET.SubElement(shopitem, "AVAILABILITY")
     negative_elem = ET.SubElement(shopitem, "NEGATIVE_AMOUNT")
@@ -73,28 +48,23 @@ def transform_product(supplier_item):
         availability_elem.text = "7-11 dní"
         negative_elem.text = "0"
 
-    # CATEGORIES – z <categorytext>
     categorytext = supplier_item.findtext("categorytext", default="N/A").strip()
     categories_elem = ET.SubElement(shopitem, "CATEGORIES")
     category_elem = ET.SubElement(categories_elem, "CATEGORY")
     category_elem.text = categorytext
 
-    # IMAGES – z <imgurl>
     imgurl = supplier_item.findtext("imgurl", default="N/A").strip()
     images_elem = ET.SubElement(shopitem, "IMAGES")
     image_elem = ET.SubElement(images_elem, "IMAGE")
     image_elem.text = imgurl
 
-    # MANUFACTURER – z <manufacturer>
     manufacturer = supplier_item.findtext("manufacturer", default="N/A").strip()
     manufacturer_elem = ET.SubElement(shopitem, "MANUFACTURER")
     manufacturer_elem.text = manufacturer
 
-    # EAN – z <ean> (už máme, pretože sme ho skontrolovali)
     ean_elem = ET.SubElement(shopitem, "EAN")
     ean_elem.text = ean
 
-    # Pridať ďalšie predvolené elementy podľa Shoptet špecifikácie
     defaults = {
         "ACTION_PRICE": "0",
         "ACTION_PRICE_FROM": "2023-01-01",
@@ -135,7 +105,6 @@ def transform_product(supplier_item):
         elem = ET.SubElement(shopitem, tag)
         elem.text = value
 
-    # SIZEID – s pod-elementmi <ID> a <LABEL>
     sizeid_elem = ET.SubElement(shopitem, "SIZEID")
     id_elem = ET.SubElement(sizeid_elem, "ID")
     id_elem.text = "0"
@@ -145,10 +114,6 @@ def transform_product(supplier_item):
     return shopitem
 
 def transform_feed(supplier_feed_url, output_filename):
-    """
-    Načíta XML feed z dodávateľskej URL, transformuje každý produkt do
-    validnej Shoptet štruktúry (preskočí produkty bez EAN) a uloží výsledok do output_filename.
-    """
     try:
         response = requests.get(supplier_feed_url)
         response.raise_for_status()
@@ -162,20 +127,33 @@ def transform_feed(supplier_feed_url, output_filename):
         print(f"Chyba pri parsovaní dodávateľského feedu: {e}")
         exit(1)
 
-    # Vytvoríme nový koreňový element <SHOP>
     shop = ET.Element("SHOP")
-    # Pre každý produkt (hľadáme tagy "shopitem" aj "SHOPITEM")
     for tag in ["shopitem", "SHOPITEM"]:
         for item in supplier_root.findall(f".//{tag}"):
             transformed_item = transform_product(item)
             if transformed_item is not None:
                 shop.append(transformed_item)
 
-    tree = ET.ElementTree(shop)
-    tree.write(output_filename, encoding="UTF-8", xml_declaration=True)
-    print(f"Transformovaný validný feed bol uložený do: {output_filename}")
+    return ET.ElementTree(shop)
 
 if __name__ == "__main__":
     supplier_feed_url = "https://vreckovynoz.sk/heureka"
     output_file = "valid_shoptet_feed.xml"
-    transform_feed(supplier_feed_url, output_file)
+    temp_file = "temp_output.xml"
+
+    tree = transform_feed(supplier_feed_url, temp_file)
+    tree.write(temp_file, encoding="UTF-8", xml_declaration=True)
+
+    if not os.path.exists(output_file) or not filecmp.cmp(temp_file, output_file, shallow=False):
+        os.replace(temp_file, output_file)
+        print(f"Feed sa zmenil, aktualizovaný súbor uložený do: {output_file}")
+    else:
+        os.remove(temp_file)
+        print("Feed sa nezmenil, nič sa neuložilo.")
+"""
+
+# Uložíme ako súbor pre Michala
+with open("/mnt/data/victorinox_test.py", "w", encoding="utf-8") as f:
+    f.write(upraveny_kod)
+
+"/mnt/data/victorinox_test.py"
