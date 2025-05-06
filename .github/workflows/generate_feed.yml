@@ -28,10 +28,13 @@ jobs:
       - name: Run feed script
         run: python victorinox_test.py
 
-      - name: Commit updated feed
+      - name: Commit updated feed if there are changes
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add valid_shoptet_feed.xml
-          git commit -m "Update feed"
-          git push
+          if ! git diff --cached --quiet; then
+            git commit -m "Update feed"
+            git push
+          else
+            echo "No changes to commit"
