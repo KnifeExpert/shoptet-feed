@@ -148,9 +148,6 @@ if __name__ == "__main__":
     tree = transform_feed(supplier_feed_url, temp_file)
     tree.write(temp_file, encoding="UTF-8", xml_declaration=True)
 
-    if not os.path.exists(output_file) or not filecmp.cmp(temp_file, output_file, shallow=False):
-        os.replace(temp_file, output_file)
-        print(f"Feed sa zmenil, aktualizovaný súbor uložený do: {output_file}")
-    else:
-        os.remove(temp_file)
-        print("Feed sa nezmenil, nič sa neuložilo.")
+    # Vždy prepíš feed (neporovnávaj)
+    os.replace(temp_file, output_file)
+    print(f"Feed prepísaný: {output_file}")
