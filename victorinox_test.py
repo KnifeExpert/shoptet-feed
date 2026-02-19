@@ -7,9 +7,8 @@ def format_decimal(value):
     return value.replace(',', '.').strip()
 
 def transform_product(supplier_item):
+    # EAN môže byť prázdny — NEvyhadzujeme produkt
     ean = supplier_item.findtext("ean", default="").strip()
-    if not ean:
-        return None
 
     shopitem = ET.Element("SHOPITEM")
     item_id = supplier_item.findtext("item_id", default="N/A").strip()
@@ -62,6 +61,7 @@ def transform_product(supplier_item):
     manufacturer_elem = ET.SubElement(shopitem, "MANUFACTURER")
     manufacturer_elem.text = manufacturer
 
+    # EAN môže byť prázdny
     ean_elem = ET.SubElement(shopitem, "EAN")
     ean_elem.text = ean
 
@@ -101,6 +101,7 @@ def transform_product(supplier_item):
         "XML_FEED_NAME": "N/A",
         "ZBOZI_HIDDEN": "false"
     }
+
     for tag, value in defaults.items():
         elem = ET.SubElement(shopitem, tag)
         elem.text = value
@@ -120,7 +121,9 @@ def transform_feed(supplier_feed_url, output_filename):
     except requests.RequestException as e:
         print(f"Chyba pri sťahovaní dodávateľského feedu: {e}")
         exit(1)
+
     xml_data = response.text
+
     try:
         supplier_root = ET.fromstring(xml_data)
     except ET.ParseError as e:
@@ -128,6 +131,7 @@ def transform_feed(supplier_feed_url, output_filename):
         exit(1)
 
     shop = ET.Element("SHOP")
+
     for tag in ["shopitem", "SHOPITEM"]:
         for item in supplier_root.findall(f".//{tag}"):
             transformed_item = transform_product(item)
